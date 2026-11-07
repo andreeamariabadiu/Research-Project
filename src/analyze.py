@@ -27,8 +27,14 @@ def parse_name(path):
 
 
 def main():
+    if not any(GEN_DIR.rglob("*.py")):
+        print("No generated files found in", GEN_DIR, "- run generate.py first.")
+        return
+
     run_bandit()
     raw = json.loads(RAW_JSON.read_text(encoding="utf-8"))
+
+    bad_files = {Path(e["filename"]).name for e in raw.get("errors", [])}
 
     columns = ["file", "model", "condition", "function_id", "run", "test_id",
                "test_name", "severity", "confidence", "cwe", "line", "text"]
@@ -53,9 +59,12 @@ def main():
     findings = pd.DataFrame(rows, columns=columns)
     findings.to_csv(RES_DIR / "findings.csv", index=False)
 
-    # one row per generated file, including files with zero findings
     files = []
+    excluded = []
     for p in sorted(GEN_DIR.rglob("*.py")):
+        if p.name in bad_files or p.stat().st_size <= 1:
+            excluded.append(p.name)
+            continue
         model, condition, fid, run = parse_name(p)
         sub = findings[findings["file"] == p.name]
         files.append({
@@ -69,6 +78,11 @@ def main():
             "n_medium": int((sub["severity"] == "MEDIUM").sum()),
             "n_low": int((sub["severity"] == "LOW").sum()),
         })
+
+    if not files:
+        print("All files were excluded (empty or unparsable).")
+        return
+
     summary = pd.DataFrame(files)
     summary["has_finding"] = summary["n_findings"] > 0
     summary.to_csv(RES_DIR / "summary_per_file.csv", index=False)
@@ -76,7 +90,10 @@ def main():
     print(summary.groupby(["model", "condition"])[
         ["n_findings", "n_high", "n_medium", "n_low", "has_finding"]
     ].mean().round(2))
-    print("\nFiles Bandit could not parse:", len(raw.get("errors", [])))
+    print("\nFiles analysed:", len(summary))
+    print("Files excluded (unparsable or empty):", len(excluded))
+    for name in excluded:
+        print("  -", name)
 
 
 if __name__ == "__main__":
