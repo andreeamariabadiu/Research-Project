@@ -2,4 +2,4 @@ bandit
 pandas
 scipy
 python-dotenv
-anthropic
+google-genai
