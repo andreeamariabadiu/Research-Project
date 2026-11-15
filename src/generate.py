@@ -12,7 +12,7 @@ load_dotenv()
 
 # ---- settings ----
 MODEL = "gemini-3.6-flash"
-RUN_START = 1
+RUN_START = 2
 N_RUNS = 1
 TEMPERATURE = 1.0
 PAUSE_SECONDS = 13
